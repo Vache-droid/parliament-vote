@@ -13,6 +13,8 @@ let gameState = {
     stage: 'LEADER_ELECTION', // LEADER_ELECTION, QUESTION_INPUT, VOTING, RESULTS
     connectedUsers: {},       
     seats: Array(11).fill('empty'), 
+    leaderVotes: Array(11).fill(0), // Храним количество голосов за каждое кресло
+    votedForLeader: {},             // Кто уже проголосовал за лидера (socket.id -> true)
     leaderSeat: null,
     question: '',
     votesReceived: 0
@@ -37,15 +39,41 @@ io.on('connection', (socket) => {
     gameState.connectedUsers[socket.id] = assignedSeat;
     socket.emit('init', { state: gameState, yourSeat: assignedSeat });
 
-    socket.on('startLeaderElection', () => {
+    // Голосование за председателя
+    socket.on('voteForLeader', (targetSeat) => {
         if (gameState.stage !== 'LEADER_ELECTION') return;
-        gameState.leaderSeat = Math.floor(Math.random() * 11);
-        io.emit('leaderSelecting', gameState.leaderSeat);
+        if (gameState.votedForLeader[socket.id]) return; // Один человек - один голос
 
-        setTimeout(() => {
-            gameState.stage = 'QUESTION_INPUT';
-            io.emit('updateState', gameState);
-        }, 3000);
+        gameState.votedForLeader[socket.id] = true;
+        gameState.leaderVotes[targetSeat]++;
+
+        // Отправляем всем обновленные счетчики голосов за председателя
+        io.emit('leaderVotesUpdated', gameState.leaderVotes);
+
+        // Проверяем, проголосовали ли все активные участники
+        const activeVotersCount = Object.values(gameState.connectedUsers).filter(s => s >= 0).length;
+        const totalVotesCast = Object.keys(gameState.votedForLeader).length;
+
+        if (totalVotesCast >= activeVotersCount && activeVotersCount > 0) {
+            // Находим кресло с максимальным числом голосов
+            let maxVotes = -1;
+            let winnerSeat = 0;
+            for (let i = 0; i < 11; i++) {
+                if (gameState.leaderVotes[i] > maxVotes) {
+                    maxVotes = gameState.leaderVotes[i];
+                    winnerSeat = i;
+                }
+            }
+
+            gameState.leaderSeat = winnerSeat;
+            io.emit('leaderDetermined', gameState.leaderSeat);
+
+            // Переходим к вводу вопроса через 3 секунды, чтобы все увидели победителя
+            setTimeout(() => {
+                gameState.stage = 'QUESTION_INPUT';
+                io.emit('updateState', gameState);
+            }, 3000);
+        }
     });
 
     socket.on('submitQuestion', (questionText) => {
@@ -77,6 +105,8 @@ io.on('connection', (socket) => {
     socket.on('resetAll', () => {
         gameState.stage = 'LEADER_ELECTION';
         gameState.seats = Array(11).fill('empty');
+        gameState.leaderVotes = Array(11).fill(0);
+        gameState.votedForLeader = {};
         gameState.leaderSeat = null;
         gameState.question = '';
         gameState.votesReceived = 0;
@@ -89,5 +119,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`Сервер работает на порту ${PORT}`);
+    console.log(`Сервер запущен`);
 });
