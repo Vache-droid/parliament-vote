@@ -15,6 +15,7 @@
             --state-yes: #16a34a;
             --state-no: #dc2626;
             --state-abstain: #525252;
+            --timer-color: #f59e0b;
         }
 
         body {
@@ -28,7 +29,7 @@
         }
 
         .container { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 24px; }
-        .screen { background-color: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 32px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .screen { background-color: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 32px; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
         .hidden { display: none !important; }
         h2 { font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; margin: 0 0 24px 0; }
         .status-text { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
@@ -41,14 +42,17 @@
         .seats-arc { display: flex; justify-content: center; align-items: flex-start; gap: 14px; height: 75px; padding: 20px 20px 0 20px; }
         
         .seat-container { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 24px; }
-        .seat { width: 20px; height: 20px; border-radius: 50%; background-color: var(--state-empty); transition: background-color 0.3s ease; }
+        .seat { width: 20px; height: 20px; border-radius: 50%; background-color: var(--state-empty); transition: background-color 0.3s ease; position: relative; }
         .vote-count { font-size: 10px; color: var(--text-muted); }
+
+        /* Внутренний номер кресла прямо на точке для удобства */
+        .seat::after { content: attr(data-num); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 9px; color: #fff; font-weight: bold; opacity: 0.4; }
 
         /* Изгиб дуги */
         .seat-arc-wrapper .seat-container:nth-child(1), .seat-arc-wrapper .seat-container:nth-child(11) { transform: translateY(16px); }
         .seat-arc-wrapper .seat-container:nth-child(2), .seat-arc-wrapper .seat-container:nth-child(10) { transform: translateY(10px); }
-        .seat-arc-wrapper .seat-container:nth-child(3), .seat-arc-wrapper .seat-container:nth-child(9)  { transform: translateY(5px); }
-        .seat-arc-wrapper .seat-container:nth-child(4), .seat-arc-wrapper .seat-container:nth-child(8)  { transform: translateY(2px); }
+        .seat-arc-wrapper .seat-container:nth-child(3), .seat-arc-wrapper .seat-container:nth-child(9) { transform: translateY(5px); }
+        .seat-arc-wrapper .seat-container:nth-child(4), .seat-arc-wrapper .seat-container:nth-child(8) { transform: translateY(2px); }
 
         .clickable { cursor: pointer; }
         .clickable:hover .seat { background-color: #525252; }
@@ -62,6 +66,9 @@
         .btn-yes { background-color: #16a34a; color: white; }
         .btn-no { background-color: #dc2626; color: white; }
         .btn-abstain { background-color: #525252; color: white; }
+
+        /* Стили таймера */
+        .timer-display { font-size: 32px; font-weight: 700; color: var(--timer-color); margin-bottom: 16px; font-variant-numeric: tabular-nums; }
 
         .results-data { width: 100%; max-width: 300px; margin-bottom: 24px; }
         .data-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid var(--border); }
@@ -79,7 +86,7 @@
 
     <div id="scr-leader" class="screen">
         <h2>Выборы председателя</h2>
-        <div class="status-text" style="margin-bottom: 10px;">Нажмите на точку (место), за которое хотите проголосовать</div>
+        <div class="status-text" style="margin-bottom: 10px;">Нажмите на точку места, за которое хотите отдать голос</div>
         <div class="board"><div class="seats-arc seat-arc-wrapper" id="leader-seats"></div></div>
         <div class="status-text" id="leader-status">Выберите лидера. Ждем голосов всех участников...</div>
     </div>
@@ -89,11 +96,12 @@
         <div class="status-text" id="question-status-text">Ожидание ввода повестки дня</div>
         <div id="leader-input-zone" class="hidden">
             <input type="text" id="input-q" placeholder="Введите текст вопроса" autocomplete="off">
-            <button onclick="sendQuestion()">Опубликовать вопрос</button>
+            <button onclick="sendQuestion()">Опубликовать и запустить 15с</button>
         </div>
     </div>
 
-    <div id="scr-voting" class="screen hidden">
+    <div id="scr-voting" class="screen">
+        <div class="timer-display" id="timer-num">15</div>
         <h2 id="vote-q-title">Вопрос:</h2>
         <div class="board"><div class="seats-arc seat-arc-wrapper" id="main-seats"></div></div>
         <div class="status-text" id="vote-status">Голосование открыто</div>
@@ -121,6 +129,7 @@
     const socket = io();
     let mySeatIndex = -1;
     let hasVotedLeader = false;
+    let countdownInterval = null;
 
     function buildLeaderSeats(votesArray) {
         const el = document.getElementById('leader-seats');
@@ -136,6 +145,7 @@
             const s = document.createElement('div');
             s.classList.add('seat');
             s.id = `leader-seat-${i}`;
+            s.setAttribute('data-num', i + 1);
 
             const count = document.createElement('div');
             count.classList.add('vote-count');
@@ -157,6 +167,7 @@
             const s = document.createElement('div');
             s.classList.add('seat');
             s.id = `main-seats-s-${i}`;
+            s.setAttribute('data-num', i + 1);
             container.appendChild(s);
             el.appendChild(container);
         }
@@ -194,11 +205,34 @@
         if(seatEl) seatEl.className = `seat ${data.choice}`;
     });
 
+    function startTimer() {
+        clearInterval(countdownInterval);
+        let timeLeft = 15;
+        const timerEl = document.getElementById('timer-num');
+        timerEl.innerText = timeLeft;
+
+        countdownInterval = setInterval(() => {
+            timeLeft--;
+            timerEl.innerText = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(countdownInterval);
+                // Только председатель отправляет команду закрытия, чтобы не спамить сервер
+                if (document.body.getAttribute('data-is-leader') === 'true') {
+                    socket.emit('timeIsUp');
+                }
+            }
+        }, 1000);
+    }
+
     function updateUI(state) {
+        clearInterval(countdownInterval);
         document.getElementById('scr-leader').classList.add('hidden');
         document.getElementById('scr-question').classList.add('hidden');
         document.getElementById('scr-voting').classList.add('hidden');
         document.getElementById('scr-results').classList.add('hidden');
+
+        const isLeader = (mySeatIndex === state.leaderSeat);
+        document.body.setAttribute('data-is-leader', isLeader ? 'true' : 'false');
 
         if (state.stage === 'LEADER_ELECTION') {
             document.getElementById('scr-leader').classList.remove('hidden');
@@ -209,7 +243,6 @@
         } 
         else if (state.stage === 'QUESTION_INPUT') {
             document.getElementById('scr-question').classList.remove('hidden');
-            const isLeader = (mySeatIndex === state.leaderSeat);
             const inputZone = document.getElementById('leader-input-zone');
             const statusTxt = document.getElementById('question-status-text');
             
@@ -242,6 +275,9 @@
                 activePanel.querySelectorAll('button').forEach(b => b.disabled = false);
                 document.getElementById('vote-status').innerText = "Сделайте ваш выбор:";
             }
+            
+            // Запускаем 15-секундный таймер локально у каждого
+            startTimer();
         } 
         else if (state.stage === 'RESULTS') {
             document.getElementById('scr-results').classList.remove('hidden');
@@ -268,7 +304,7 @@
             }
 
             const resetBtn = document.getElementById('btn-reset');
-            if (mySeatIndex === state.leaderSeat) {
+            if (isLeader) {
                 resetBtn.classList.remove('hidden');
             } else {
                 resetBtn.classList.add('hidden');
@@ -281,7 +317,6 @@
             hasVotedLeader = true;
             socket.emit('voteForLeader', seatNum);
             document.getElementById('leader-status').innerText = "Ваш голос принят. Ожидаем остальных участников...";
-            // Отключаем кликабельность локально
             document.querySelectorAll('.seat-container').forEach(c => c.classList.remove('clickable'));
         }
     }
