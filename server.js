@@ -13,8 +13,8 @@ let gameState = {
     stage: 'LEADER_ELECTION', // LEADER_ELECTION, QUESTION_INPUT, VOTING, RESULTS
     connectedUsers: {},       
     seats: Array(11).fill('empty'), 
-    leaderVotes: Array(11).fill(0), // Храним количество голосов за каждое кресло
-    votedForLeader: {},             // Кто уже проголосовал за лидера (socket.id -> true)
+    leaderVotes: Array(11).fill(0), 
+    votedForLeader: {},             
     leaderSeat: null,
     question: '',
     votesReceived: 0
@@ -39,23 +39,19 @@ io.on('connection', (socket) => {
     gameState.connectedUsers[socket.id] = assignedSeat;
     socket.emit('init', { state: gameState, yourSeat: assignedSeat });
 
-    // Голосование за председателя
     socket.on('voteForLeader', (targetSeat) => {
         if (gameState.stage !== 'LEADER_ELECTION') return;
-        if (gameState.votedForLeader[socket.id]) return; // Один человек - один голос
+        if (gameState.votedForLeader[socket.id]) return; 
 
         gameState.votedForLeader[socket.id] = true;
         gameState.leaderVotes[targetSeat]++;
 
-        // Отправляем всем обновленные счетчики голосов за председателя
         io.emit('leaderVotesUpdated', gameState.leaderVotes);
 
-        // Проверяем, проголосовали ли все активные участники
         const activeVotersCount = Object.values(gameState.connectedUsers).filter(s => s >= 0).length;
         const totalVotesCast = Object.keys(gameState.votedForLeader).length;
 
         if (totalVotesCast >= activeVotersCount && activeVotersCount > 0) {
-            // Находим кресло с максимальным числом голосов
             let maxVotes = -1;
             let winnerSeat = 0;
             for (let i = 0; i < 11; i++) {
@@ -68,7 +64,6 @@ io.on('connection', (socket) => {
             gameState.leaderSeat = winnerSeat;
             io.emit('leaderDetermined', gameState.leaderSeat);
 
-            // Переходим к вводу вопроса через 3 секунды, чтобы все увидели победителя
             setTimeout(() => {
                 gameState.stage = 'QUESTION_INPUT';
                 io.emit('updateState', gameState);
@@ -93,13 +88,14 @@ io.on('connection', (socket) => {
         gameState.seats[seat] = choice;
         gameState.votesReceived++;
 
-        const activeVoters = Object.values(gameState.connectedUsers).filter(s => s >= 0).length;
         io.emit('seatUpdated', { seat, choice });
+    });
 
-        if (gameState.votesReceived >= activeVoters) {
-            gameState.stage = 'RESULTS';
-            io.emit('updateState', gameState);
-        }
+    // Принудительное завершение голосования по таймеру из браузера
+    socket.on('timeIsUp', () => {
+        if (gameState.stage !== 'VOTING') return;
+        gameState.stage = 'RESULTS';
+        io.emit('updateState', gameState);
     });
 
     socket.on('resetAll', () => {
