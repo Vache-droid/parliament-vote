@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="hy">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Система голосования</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Քվեարկության Համակարգ</title>
     <style>
         :root {
             --bg: #0d0d0d;
@@ -18,110 +18,172 @@
             --timer-color: #f59e0b;
         }
 
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg);
             color: var(--text-main);
             margin: 0;
-            padding: 40px 20px;
+            padding: 16px 12px;
             display: flex;
             justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
 
-        .container { width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 24px; }
-        .screen { background-color: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 32px; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
-        .hidden { display: none !important; }
-        h2 { font-size: 14px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.15em; margin: 0 0 24px 0; }
-        .status-text { font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+        .container { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; }
         
-        input[type="text"] { width: 100%; box-sizing: border-box; background-color: var(--bg); border: 1px solid var(--border); color: var(--text-main); padding: 12px; font-size: 14px; border-radius: 4px; margin-bottom: 24px; outline: none; text-align: center; }
-        button { background-color: var(--text-main); color: var(--bg); border: none; padding: 12px 24px; font-size: 13px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; border-radius: 4px; cursor: pointer; }
+        .screen { 
+            background-color: var(--panel); 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            padding: 24px 16px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            text-align: center; 
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        
+        .hidden { display: none !important; }
+        
+        h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin: 0 0 16px 0; color: #a3a3a3; }
+        .status-text { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.4; padding: 0 8px; }
+        
+        input[type="text"] { 
+            width: 100%; 
+            background-color: var(--bg); 
+            border: 1px solid var(--border); 
+            color: var(--text-main); 
+            padding: 14px; 
+            font-size: 14px; 
+            border-radius: 6px; 
+            margin-bottom: 16px; 
+            outline: none; 
+            text-align: center; 
+        }
+        
+        button { 
+            background-color: var(--text-main); 
+            color: var(--bg); 
+            border: none; 
+            padding: 14px 20px; 
+            font-size: 12px; 
+            font-weight: 600; 
+            text-transform: uppercase; 
+            letter-spacing: 0.05em; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            width: 100%;
+            max-width: 280px;
+            transition: background-color 0.2s;
+        }
+        button:active { background-color: #d4d4d4; }
         button:disabled { background-color: var(--border); color: var(--text-muted); cursor: default; }
 
-        .board { width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; }
-        .seats-arc { display: flex; justify-content: center; align-items: flex-start; gap: 14px; height: 75px; padding: 20px 20px 0 20px; }
+        .board { width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 16px; overflow: hidden; }
         
-        .seat-container { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 24px; }
-        .seat { width: 20px; height: 20px; border-radius: 50%; background-color: var(--state-empty); transition: background-color 0.3s ease; position: relative; }
-        .vote-count { font-size: 10px; color: var(--text-muted); }
+        /* Оптимизированная адаптивная дуга для мобильных устройств */
+        .seats-arc { 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-start; 
+            gap: 6px; 
+            height: 65px; 
+            padding: 15px 5px 0 5px; 
+            width: 100%;
+            max-width: 340px;
+        }
+        
+        .seat-container { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 24px; flex-shrink: 0; }
+        .seat { width: 18px; height: 18px; border-radius: 50%; background-color: var(--state-empty); transition: background-color 0.2s ease; position: relative; }
+        .vote-count { font-size: 9px; color: var(--text-muted); font-weight: 600; }
 
-        /* Внутренний номер кресла прямо на точке для удобства */
-        .seat::after { content: attr(data-num); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 9px; color: #fff; font-weight: bold; opacity: 0.4; }
+        .seat::after { content: attr(data-num); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8px; color: #fff; font-weight: bold; opacity: 0.5; }
 
-        /* Изгиб дуги */
-        .seat-arc-wrapper .seat-container:nth-child(1), .seat-arc-wrapper .seat-container:nth-child(11) { transform: translateY(16px); }
-        .seat-arc-wrapper .seat-container:nth-child(2), .seat-arc-wrapper .seat-container:nth-child(10) { transform: translateY(10px); }
+        /* Изогнутая геометрия дуги под мобильный экран */
+        .seat-arc-wrapper .seat-container:nth-child(1), .seat-arc-wrapper .seat-container:nth-child(11) { transform: translateY(14px); }
+        .seat-arc-wrapper .seat-container:nth-child(2), .seat-arc-wrapper .seat-container:nth-child(10) { transform: translateY(9px); }
         .seat-arc-wrapper .seat-container:nth-child(3), .seat-arc-wrapper .seat-container:nth-child(9) { transform: translateY(5px); }
         .seat-arc-wrapper .seat-container:nth-child(4), .seat-arc-wrapper .seat-container:nth-child(8) { transform: translateY(2px); }
 
         .clickable { cursor: pointer; }
-        .clickable:hover .seat { background-color: #525252; }
+        .clickable:hover .seat { background-color: #404040; }
 
         .seat.yes { background-color: var(--state-yes); }
         .seat.no { background-color: var(--state-no); }
         .seat.abstain { background-color: var(--state-abstain); }
-        .seat.active-leader { background-color: #3b82f6; }
+        .seat.active-leader { background-color: #3b82f6; box-shadow: 0 0 8px #3b82f6; }
 
-        .vote-actions { display: flex; gap: 8px; width: 100%; justify-content: center; margin-top: 16px; }
+        .vote-actions { display: flex; gap: 8px; width: 100%; justify-content: center; margin-top: 8px; }
+        .vote-actions button { flex: 1; max-width: 100px; padding: 12px 0; font-size: 11px; }
         .btn-yes { background-color: #16a34a; color: white; }
         .btn-no { background-color: #dc2626; color: white; }
         .btn-abstain { background-color: #525252; color: white; }
+        .btn-yes:active { background-color: #15803d; }
+        .btn-no:active { background-color: #b91c1c; }
+        .btn-abstain:active { background-color: #404040; }
 
-        /* Стили таймера */
-        .timer-display { font-size: 32px; font-weight: 700; color: var(--timer-color); margin-bottom: 16px; font-variant-numeric: tabular-nums; }
+        .timer-display { font-size: 28px; font-weight: 700; color: var(--timer-color); margin-bottom: 12px; font-variant-numeric: tabular-nums; }
 
-        .results-data { width: 100%; max-width: 300px; margin-bottom: 24px; }
-        .data-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid var(--border); }
-        .verdict { font-size: 16px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 16px; padding: 12px 24px; border-radius: 4px; width: 100%; box-sizing: border-box; }
-        .verdict.passed { border: 1px solid var(--state-yes); color: var(--state-yes); }
-        .verdict.failed { border: 1px solid var(--state-no); color: var(--state-no); }
-        .identity-tag { font-size: 11px; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+        .results-data { width: 100%; max-width: 260px; margin-bottom: 16px; }
+        .data-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+        
+        .verdict { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 12px; padding: 12px; border-radius: 6px; width: 100%; box-sizing: border-box; }
+        .verdict.passed { border: 1px solid var(--state-yes); color: var(--state-yes); background-color: rgba(22, 163, 74, 0.05); }
+        .verdict.failed { border: 1px solid var(--state-no); color: var(--state-no); background-color: rgba(220, 38, 38, 0.05); }
+        
+        .identity-tag { font-size: 10px; color: #3b82f6; text-transform: uppercase; letter-spacing: 0.05em; text-align: center; font-weight: 600; }
     </style>
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
 <div class="container">
-    <div id="user-identity" class="identity-tag">Подключение...</div>
+    <div id="user-identity" class="identity-tag">Միացում...</div>
 
     <div id="scr-leader" class="screen">
-        <h2>Выборы председателя</h2>
-        <div class="status-text" style="margin-bottom: 10px;">Нажмите на точку места, за которое хотите отдать голос</div>
+        <div class="timer-display" id="leader-timer-num">15</div>
+        <h2>Նախագահի ընտրություն</h2>
+        <div class="status-text" style="margin-bottom: 8px;">Ընտրեք համակարգողին՝ սեղմելով համապատասխան կետի վրա</div>
         <div class="board"><div class="seats-arc seat-arc-wrapper" id="leader-seats"></div></div>
-        <div class="status-text" id="leader-status">Выберите лидера. Ждем голосов всех участников...</div>
+        <div class="status-text" id="leader-status">Սպասում ենք մասնակիցների ձայներին...</div>
     </div>
 
     <div id="scr-question" class="screen hidden">
-        <h2>Панель председателя</h2>
-        <div class="status-text" id="question-status-text">Ожидание ввода повестки дня</div>
-        <div id="leader-input-zone" class="hidden">
-            <input type="text" id="input-q" placeholder="Введите текст вопроса" autocomplete="off">
-            <button onclick="sendQuestion()">Опубликовать и запустить 15с</button>
+        <div class="timer-display" id="question-timer-num">20</div>
+        <h2>Նախագահի վահանակ</h2>
+        <div class="status-text" id="question-status-text">Սպասում ենք հարցի հրապարակմանը</div>
+        <div id="leader-input-zone" class="hidden" style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+            <input type="text" id="input-q" placeholder="Մուտքագրեք հարցի տեքստը" autocomplete="off">
+            <button onclick="sendQuestion()">Հրապարակել հարցը</button>
         </div>
     </div>
 
-    <div id="scr-voting" class="screen">
+    <div id="scr-voting" class="screen hidden">
         <div class="timer-display" id="timer-num">15</div>
-        <h2 id="vote-q-title">Вопрос:</h2>
+        <h2 id="vote-q-title">Հարց:</h2>
         <div class="board"><div class="seats-arc seat-arc-wrapper" id="main-seats"></div></div>
-        <div class="status-text" id="vote-status">Голосование открыто</div>
+        <div class="status-text" id="vote-status">Քվեարկությունը բաց է</div>
         <div class="vote-actions" id="user-panel">
-            <button class="btn-yes" onclick="submitVote('yes')">За</button>
-            <button class="btn-no" onclick="submitVote('no')">Против</button>
-            <button class="btn-abstain" onclick="submitVote('abstain')">Воздержался</button>
+            <button class="btn-yes" onclick="submitVote('yes')">Կողմ</button>
+            <button class="btn-no" onclick="submitVote('no')">Դեմ</button>
+            <button class="btn-abstain" onclick="submitVote('abstain')">Ձեռնպահ</button>
         </div>
     </div>
 
     <div id="scr-results" class="screen hidden">
-        <h2>Протокол заседания</h2>
-        <div class="status-text" id="res-q-title">Вопрос</div>
+        <h2>Նիստի արձանագրություն</h2>
+        <div class="status-text" id="res-q-title">Հարց</div>
         <div class="results-data">
-            <div class="data-row"><span>Голоса «За»</span><span id="r-yes" style="color: var(--state-yes)">0</span></div>
-            <div class="data-row"><span>Голоса «Против»</span><span id="r-no" style="color: var(--state-no)">0</span></div>
-            <div class="data-row"><span>Воздержались</span><span id="r-abstain" style="color: var(--state-abstain)">0</span></div>
+            <div class="data-row"><span>«Կողմ» ձայներ</span><span id="r-yes" style="color: var(--state-yes)">0</span></div>
+            <div class="data-row"><span>«Դեմ» ձայներ</span><span id="r-no" style="color: var(--state-no)">0</span></div>
+            <div class="data-row"><span>«Ձեռնպահ» ձայներ</span><span id="r-abstain" style="color: var(--state-abstain)">0</span></div>
         </div>
         <div id="verdict-block" class="verdict"></div>
-        <button id="btn-reset" class="hidden" style="margin-top: 24px;" onclick="triggerReset()">Новая сессия</button>
+        <button id="btn-reset" class="hidden" style="margin-top: 16px;" onclick="triggerReset()">Նոր նիստ</button>
     </div>
 </div>
 
@@ -176,7 +238,7 @@
     socket.on('init', (data) => {
         mySeatIndex = data.yourSeat;
         const tag = document.getElementById('user-identity');
-        tag.innerText = mySeatIndex !== -1 ? `Ваше место: Участник №${mySeatIndex + 1}` : "Режим наблюдателя (Зал полон)";
+        tag.innerText = mySeatIndex !== -1 ? `Ձեր տեղը: Մասնակից №${mySeatIndex + 1}` : "Դիտորդի ռեժիմ (Դահլիճը լիքն է)";
         hasVotedLeader = data.state.votedForLeader[socket.id] || false;
         updateUI(data.state);
     });
@@ -197,7 +259,7 @@
         document.querySelectorAll('#leader-seats .seat').forEach(s => s.classList.remove('active-leader'));
         const leaderSeatEl = document.getElementById(`leader-seat-${finalLeader}`);
         if(leaderSeatEl) leaderSeatEl.classList.add('active-leader');
-        document.getElementById('leader-status').innerText = `Выборы окончены! Председателем выбран Участник №${finalLeader + 1}`;
+        document.getElementById('leader-status').innerText = `Ընտրություններն ավարտվեցին: Նախագահ ընտրվեց Մասնակից №${finalLeader + 1}-ը`;
     });
 
     socket.on('seatUpdated', (data) => {
@@ -205,10 +267,10 @@
         if(seatEl) seatEl.className = `seat ${data.choice}`;
     });
 
-    function startTimer() {
+    function runTimer(seconds, elementId, callback) {
         clearInterval(countdownInterval);
-        let timeLeft = 15;
-        const timerEl = document.getElementById('timer-num');
+        let timeLeft = seconds;
+        const timerEl = document.getElementById(elementId);
         timerEl.innerText = timeLeft;
 
         countdownInterval = setInterval(() => {
@@ -216,10 +278,7 @@
             timerEl.innerText = timeLeft;
             if (timeLeft <= 0) {
                 clearInterval(countdownInterval);
-                // Только председатель отправляет команду закрытия, чтобы не спамить сервер
-                if (document.body.getAttribute('data-is-leader') === 'true') {
-                    socket.emit('timeIsUp');
-                }
+                if (callback) callback();
             }
         }, 1000);
     }
@@ -238,8 +297,14 @@
             document.getElementById('scr-leader').classList.remove('hidden');
             buildLeaderSeats(state.leaderVotes);
             if (hasVotedLeader) {
-                document.getElementById('leader-status').innerText = "Ваш голос принят. Ожидаем остальных участников...";
+                document.getElementById('leader-status').innerText = "Ձեր ձայնն ընդունված է: Սպասում ենք մյուսներին...";
             }
+            // Таймер 15 секунд на выборы лидера. Если время вышло, первый участник шлет сигнал завершения.
+            runTimer(15, 'leader-timer-num', () => {
+                if (mySeatIndex === 0 && !state.leaderSeat) {
+                    socket.emit('voteForLeader', 0); // Авто-выбор первого места, если никто не проголосовал
+                }
+            });
         } 
         else if (state.stage === 'QUESTION_INPUT') {
             document.getElementById('scr-question').classList.remove('hidden');
@@ -248,15 +313,24 @@
             
             if (isLeader) {
                 inputZone.classList.remove('hidden');
-                statusTxt.innerText = "Вы победили на выборах главного! Введите повестку:";
+                statusTxt.innerText = "Դուք ընտրվել եք նախագահ: Մուտքագրեք օրակարգը:";
             } else {
                 inputZone.classList.add('hidden');
-                statusTxt.innerText = `Председателем выбран Участник №${state.leaderSeat + 1}. Ожидаем повестку дня...`;
+                statusTxt.innerText = `Նախագահ է ընտրվել Մասնակից №${state.leaderSeat + 1}-ը: Սպասում ենք հարցին...`;
             }
+
+            // Таймер 20 секунд на ввод вопроса
+            runTimer(20, 'question-timer-num', () => {
+                if (isLeader) {
+                    // Если лидер не ввел текст, шлем авто-вопрос, чтобы не стопорить сессию
+                    const val = document.getElementById('input-q').value.trim();
+                    socket.emit('submitQuestion', val || "Ընթացիկ հարցի քվեարկություն");
+                }
+            });
         } 
         else if (state.stage === 'VOTING') {
             document.getElementById('scr-voting').classList.remove('hidden');
-            document.getElementById('vote-q-title').innerText = `Вопрос: ${state.question}`;
+            document.getElementById('vote-q-title').innerText = `Հարց: ${state.question}`;
             buildMainSeats();
             
             for(let i=0; i<11; i++) {
@@ -270,14 +344,18 @@
             
             if(mySeatIndex === -1 || alreadyVoted) {
                 activePanel.querySelectorAll('button').forEach(b => b.disabled = true);
-                document.getElementById('vote-status').innerText = alreadyVoted ? "Ваш выбор принят. Ожидание итогов." : "Наблюдение за ходом сессии.";
+                document.getElementById('vote-status').innerText = alreadyVoted ? "Ձեր ընտրությունն ընդունված է:" : "Նիստի ընթացքի դիտարկում:";
             } else {
                 activePanel.querySelectorAll('button').forEach(b => b.disabled = false);
-                document.getElementById('vote-status').innerText = "Сделайте ваш выбор:";
+                document.getElementById('vote-status').innerText = "Կատարեք ձեր ընտրությունը.";
             }
             
-            // Запускаем 15-секундный таймер локально у каждого
-            startTimer();
+            // Таймер 15 секунд на голосование
+            runTimer(15, 'timer-num', () => {
+                if (document.body.getAttribute('data-is-leader') === 'true') {
+                    socket.emit('timeIsUp');
+                }
+            });
         } 
         else if (state.stage === 'RESULTS') {
             document.getElementById('scr-results').classList.remove('hidden');
@@ -296,10 +374,10 @@
             const majority = Math.floor(actualVotes / 2) + 1;
 
             if (yesCount >= majority && yesCount > 0) {
-                vBlock.innerText = "Решение принято";
+                vBlock.innerText = "Որոշումն ընդունված է";
                 vBlock.className = "verdict passed";
             } else {
-                vBlock.innerText = "Решение отклонено";
+                vBlock.innerText = "Որոշումը չի ընդունվել";
                 vBlock.className = "verdict failed";
             }
 
@@ -316,7 +394,7 @@
         if(!hasVotedLeader) {
             hasVotedLeader = true;
             socket.emit('voteForLeader', seatNum);
-            document.getElementById('leader-status').innerText = "Ваш голос принят. Ожидаем остальных участников...";
+            document.getElementById('leader-status').innerText = "Ձեր ձայնն ընդունված է: Սպասում ենք մյուսներին...";
             document.querySelectorAll('.seat-container').forEach(c => c.classList.remove('clickable'));
         }
     }
